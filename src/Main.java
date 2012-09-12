@@ -20,9 +20,13 @@ import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.util.Bytes;
 public class Main {
 	static public void main(String args[]) {
+		long start, end;
 		String host = "localhost.60000";
 		if (args.length > 0)
 			host = args[0];
+		String tableName = "myTable";
+		if (args.length > 1)
+			tableName = args[1];
 		Configuration conf = HBaseConfiguration.create();
 		conf.set("hbase.master", host);
 		HBaseAdmin admin;
@@ -35,8 +39,9 @@ public class Main {
 			e.printStackTrace();
 			return;
 		}    
-		String tableName = "myTable";	
+
 		String columnFamily = "test";
+		start = System.currentTimeMillis();
 		HTableDescriptor tableDesc = new HTableDescriptor(tableName);
 		try {
 			System.out.println("create table " + tableName);
@@ -49,64 +54,47 @@ public class Main {
 			System.err.println("can't create table " + tableName);
 			e.printStackTrace();
 		}
+		end = System.currentTimeMillis();
+		System.out.println("creating a table takes: " + (((double) end - start) / 1000));
+
 		// insert rows
 		HTable table = null;
+		start = System.currentTimeMillis();
 		try {
 			System.out.println("add rows");
 			table = new HTable(conf, tableName);
-			for (int i = 0; i < 100; i++) {
+			for (int i = 0; i < 1000; i++) {
 				String rowKey = new Integer(i).toString();
 				Put put = new Put(rowKey.getBytes());
 				put.add(columnFamily.getBytes(), 
 						new Integer(i).toString().getBytes(),
-						new Integer(i).toString().getBytes());
+						new byte[1024 * 1024]);
 				table.put(put);
 			}
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
-		if (table == null) {
-			System.err.println("we can't create table instance");
-			return;
-		}
-		// search for rows
+		end = System.currentTimeMillis();
+		System.out.println("inserting 1GB takes: " + (((double) end - start) / 1000));
+
+		start = System.currentTimeMillis();
 		try {
-			System.out.println("get rows");
-			for (int i = 0; i < 100; i++) {
+			System.out.println("add rows");
+			table = new HTable(conf, tableName);
+			for (int i = 1000; i < 2000; i++) {
 				String rowKey = new Integer(i).toString();
-				Get get = new Get(rowKey.getBytes());
-				Result result = table.get(get);
-				NavigableMap<byte[], byte[]> map = result.getFamilyMap(columnFamily.getBytes());
-				for (Map.Entry<byte[], byte[]> entry = map.pollFirstEntry(); entry != null; ) {
-					Integer key = new Integer(new String(entry.getKey()));
-					Integer value = new Integer(new String(entry.getValue()));
-					System.out.println("Get row: " + Bytes.toString(result.getRow())
-							+ " with value: " + value);
-					entry = map.pollFirstEntry();
-				}
+				Put put = new Put(rowKey.getBytes());
+				put.add(columnFamily.getBytes(), 
+						new Integer(i).toString().getBytes(),
+						new byte[1]);
+				table.put(put);
 			}
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
-		try {
-			System.out.println("range query");
-			Scan scan = new Scan(new Integer(4).toString().getBytes(),
-					new Integer(50).toString().getBytes());
-			ResultScanner scanner = table.getScanner(scan);
-			// The other approach is to use a foreach loop. Scanners are iterable!
-			for (Result result = scanner.next(); result != null; result = scanner.next()) {
-				NavigableMap<byte[], byte[]> map = result.getFamilyMap(columnFamily.getBytes());
-				for (Map.Entry<byte[], byte[]> entry = map.pollFirstEntry(); entry != null; ) {
-					Integer key = new Integer(new String(entry.getKey()));
-					Integer value = new Integer(new String(entry.getValue()));
-					System.out.println("Found row: " + Bytes.toString(result.getRow())
-							+ " with value: " + value);
-					entry = map.pollFirstEntry();
-				}
-			}
-		} catch(IOException e) {
-			e.printStackTrace();
-		}
+		end = System.currentTimeMillis();
+		System.out.println("inserting 1GB takes: " + (((double) end - start) / 1000));
+
 		try {
 			table.close();
 			admin.close();
