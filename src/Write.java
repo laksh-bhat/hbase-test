@@ -11,6 +11,8 @@ import org.apache.hadoop.hbase.client.HTable;
 import org.apache.hadoop.hbase.client.Put;
 
 public class Write {
+	static final int numThreads = 10;
+	
 	static public void main(String args[]) throws InterruptedException {
 		long start, end;
 		if (args.length < 3) {
@@ -19,11 +21,11 @@ public class Write {
 			return;
 		}
 		
-		String host = args[0];
-		String tableName = args[1];
-		String type = args[2];
+		final String host = args[0];
+		final String tableName = args[1];
+		final String type = args[2];
 		
-		Configuration conf = HBaseConfiguration.create();
+		final Configuration conf = HBaseConfiguration.create();
 		conf.set("hbase.master", host);
 		HBaseAdmin admin;
 		try {
@@ -36,7 +38,7 @@ public class Write {
 			return;
 		}    
 
-		String columnFamily = "test";
+		final String columnFamily = "test";
 		start = System.currentTimeMillis();
 		HTableDescriptor tableDesc = new HTableDescriptor(tableName);
 		try {
@@ -62,39 +64,49 @@ public class Write {
 
 		// insert rows
 		start = System.currentTimeMillis();
-		long bytes = 0;
-		try {
-			System.out.println("add rows");
-			HTable table = new HTable(conf, tableName);
-			if (type.equals("throughput")) {
-				for (int i = 0; i < 1000; i++) {
-					String rowKey = new Integer(i).toString();
-					Put put = new Put(rowKey.getBytes());
-					put.add(columnFamily.getBytes(), 
-							new Integer(i).toString().getBytes(),
-							new byte[1024 * 1024]);
-					bytes += 1024 * 1024;
-					table.put(put);
-				}
-			}
-			else if (type.equals("latency")) {
-				for (int i = 1000; i < 2000; i++) {
-					String rowKey = new Integer(i).toString();
-					Put put = new Put(rowKey.getBytes());
-					put.add(columnFamily.getBytes(), 
-							new Integer(i).toString().getBytes(),
-							new byte[1]);
-					bytes++;
-					table.put(put);
-				}
-			}
-			table.close();
+		Thread threads[] = new Thread[numThreads];
+		for (int i = 0; i < threads.length; i++) {
+			threads[i] = new Thread() {
+				public void run() {
+					long bytes = 0;
+					try {
+						System.out.println("add rows");
+						HTable table = new HTable(conf, tableName);
+						if (type.equals("throughput")) {
+							for (int i = 0; i < 1000 / numThreads; i++) {
+								String rowKey = new Integer(i).toString();
+								Put put = new Put(rowKey.getBytes());
+								put.add(columnFamily.getBytes(), 
+										new Integer(i).toString().getBytes(),
+										new byte[1024 * 1024]);
+								bytes += 1024 * 1024;
+								table.put(put);
+							}
+						}
+						else if (type.equals("latency")) {
+							for (int i = 0; i < 1000 / numThreads; i++) {
+								String rowKey = new Integer(i + 1000).toString();
+								Put put = new Put(rowKey.getBytes());
+								put.add(columnFamily.getBytes(), 
+										new Integer(i + 1000).toString().getBytes(),
+										new byte[1]);
+								bytes++;
+								table.put(put);
+							}
+						}
+						table.close();
 
-		} catch (IOException e) {
-			e.printStackTrace();
+					} catch (IOException e) {
+						e.printStackTrace();
+					}
+				}
+			};
+			threads[i].start();
 		}
+		for (int i = 0; i < threads.length; i++)
+			threads[i].join();
 		end = System.currentTimeMillis();
-		System.out.println("inserting " + bytes + "B takes: " + (((double) end - start) / 1000));
+		System.out.println("inserting takes: " + (((double) end - start) / 1000));
 
 	}
 }
