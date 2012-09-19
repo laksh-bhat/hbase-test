@@ -63,7 +63,7 @@ public class Main {
 			dataSize += fileSizes[i];
 		}
 		System.out.println("total data size: " + dataSize);
-		int numRegions = (int) (dataSize / 4 / 1024 / 1024);
+		int numRegions = (int) (dataSize / 256 / 1024 / 1024);
 		int numFilesPerRegion = keys.length / numRegions;
 		byte[][] splits = new byte[numRegions - 1][];
 		for (int i = 0; i < splits.length; i++) {
@@ -127,10 +127,12 @@ public class Main {
 							value);
 					System.out.println("key size: " + rowKey.getBytes().length
 							+ ", value size: " + value.length);
-					table.put(put);
-//					list.add(put);
+					list.add(put);
+					if (list.size() >= 1000) {
+						table.put(put);
+						list = new LinkedList<Put>();
+					}
 				}
-//				table.put(list);
 				table.close();
 			} catch (IOException e) {
 				e.printStackTrace();
