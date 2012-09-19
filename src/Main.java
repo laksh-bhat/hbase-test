@@ -45,25 +45,26 @@ public class Main {
 		String dirName = args[2];
 		String type = args[3];
 
-		File dir = new File(dirName);
-		File[] files = dir.listFiles();
-		Arrays.sort(files, new Comparator<File>() {
-			@Override
-			public int compare(File f0, File f1) {
-				return f0.getName().compareTo(f1.getName());
-			}
-		});
-		String keys[] = new String[files.length];
+//		File dir = new File(dirName);
+//		File[] files = dir.listFiles();
+//		Arrays.sort(files, new Comparator<File>() {
+//			@Override
+//			public int compare(File f0, File f1) {
+//				return f0.getName().compareTo(f1.getName());
+//			}
+//		});
+		String keys[] = new String[20000];
+		int fileSizes[] = new int[keys.length];
 		long dataSize = 0;
-		for (int i = 0; i < files.length; i++) {
-			System.out.println("file" + i + ": " + files[i].getName()
-					+ ", size: " + files[i].length());
-			keys[i] = files[i].getName();
-			dataSize += files[i].length();
+		Random r = new Random();
+		for (int i = 0; i < keys.length; i++) {
+			keys[i] = "" + i;
+			fileSizes[i] = 220000 + r.nextInt(30000);
+			dataSize += fileSizes[i];
 		}
 		System.out.println("total data size: " + dataSize);
 		int numRegions = (int) (dataSize / 4 / 1024 / 1024);
-		int numFilesPerRegion = files.length / numRegions;
+		int numFilesPerRegion = keys.length / numRegions;
 		byte[][] splits = new byte[numRegions - 1][];
 		for (int i = 0; i < splits.length; i++) {
 			byte keyBytes[] = keys[(i + 1) * numFilesPerRegion].getBytes();
@@ -111,15 +112,6 @@ public class Main {
 			System.out.println("creating a table takes: " + (((double) end - start) / 1000));
 		}
 		else if (type.equals("write")) {
-			byte[] values[] = new byte[files.length][];
-			dataSize = 0;
-			for (int i = 0; i < files.length; i++) {
-				System.out.println("file" + i + ": " + files[i].getName());
-				keys[i] = files[i].getName();
-				values[i] = readFile(files[i]);
-				dataSize += values[i].length;
-			}
-			System.out.println("read all files");
 			// insert rows
 			start = System.currentTimeMillis();
 			try {
@@ -127,13 +119,14 @@ public class Main {
 				HTable table = new HTable(conf, tableName);
 				LinkedList<Put> list = new LinkedList<Put>();
 				for (int i = 0; i < keys.length; i++) {
+					byte[] value = new byte[fileSizes[i]];
 					String rowKey = keys[i];
 					Put put = new Put(rowKey.getBytes());
 					put.add(columnFamily.getBytes(), 
 							new Integer(i).toString().getBytes(),
-							values[i]);
+							value);
 					System.out.println("key size: " + rowKey.getBytes().length
-							+ ", value size: " + values[i].length);
+							+ ", value size: " + value.length);
 					table.put(put);
 //					list.add(put);
 				}
