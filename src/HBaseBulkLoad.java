@@ -43,8 +43,8 @@ public class HBaseBulkLoad {
     }
     // Main method
     public static void main(String[] args) throws Exception {
-        if (args.length != 2) {
-            System.err.println("Usage - HBaseBulkLoad <host> <table_name>  <input-file-directory>");
+        if (args.length != 4) {
+            System.err.println("Usage - HBaseBulkLoad <host> <table_name>  <input-file-directory> <output>");
             System.exit(-1);
         }
 
@@ -64,10 +64,9 @@ public class HBaseBulkLoad {
         job.setOutputKeyClass(Text.class);
         job.setOutputValueClass(Text.class);
 
-        getFilePaths(args[0]);
-        FileInputFormat.addInputPath(job, new Path(args[2]));
+        FileInputFormat.addInputPath(job, new Path(getFilePaths(args[2])));
         // Set the input and output path
-        //FileOutputFormat.setOutputPath(job, new Path(args[3]));
+        FileOutputFormat.setOutputPath(job, new Path(args[3]));
 
         String host = args[0];
         Configuration conf = HBaseConfiguration.create();
@@ -79,15 +78,23 @@ public class HBaseBulkLoad {
         System.exit(job.waitForCompletion(true) ? 0 : 1);
     }
 
-    private static void getFilePaths(String arg) {
+    private static String getFilePaths(String arg) {
         File dir = new File(arg);
+        StringBuilder fileStr = new StringBuilder();
         if (dir.isDirectory()) {
             File[] files = dir.listFiles();
-            List<String> fileList = new ArrayList<String>();
-            for (File file : files)
-                fileList.add(file.getAbsolutePath());
-
+            if (files != null) {
+                for (File file : files) {
+                    if (fileStr.length() == 0)
+                        fileStr.append(file.getAbsolutePath());
+                    else {
+                        fileStr.append(",");
+                        fileStr.append(file.getAbsolutePath());
+                    }
+                }
+            }
         }
+        return fileStr.toString();
     }
 
 /*
